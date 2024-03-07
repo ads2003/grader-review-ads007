@@ -1,16 +1,51 @@
-CPATH='.:lib/hamcrest-core-1.3.jar:lib/junit-4.13.2.jar'
+#!/bin/bash
 
-rm -rf student-submission
-rm -rf grading-area
+# Ensure a repository URL is provided
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <GitHub repository URL>"
+    exit 1
+fi
 
-mkdir grading-area
+REPO_URL="$1"
+REPO_DIR="grading-area"
 
-git clone $1 student-submission
+# Define the classpath with absolute paths to the JUnit and Hamcrest libraries
+LIB_DIR="$(pwd)/lib"
+CPATH=".:$LIB_DIR/hamcrest-core-1.3.jar:$LIB_DIR/junit-4.13.2.jar"
+
+# Cleanup and setup
+rm -rf "$REPO_DIR"
+git clone "$REPO_URL" "$REPO_DIR"
 echo 'Finished cloning'
 
+# Check for the required file
+if [ ! -f "$REPO_DIR/ListExamples.java" ]; then
+    echo "ListExamples.java not found in the submission."
+    exit 1
+fi
 
-# Draw a picture/take notes on the directory structure that's set up after
-# getting to this point
+# Prepare the grading area
+cp TestListExamples.java "$REPO_DIR"
+cp "$LIB_DIR"/* "$REPO_DIR"
 
-# Then, add here code to compile and run, and do any post-processing of the
-# tests
+# Compile and test
+cd "$REPO_DIR"
+javac -cp "$CPATH" *.java
+if [ $? -ne 0 ]; then
+    echo "Compilation failed. Please check your code for errors."
+    exit 1
+fi
+
+# Run the tests
+test_output=$(java -cp "$CPATH" org.junit.runner.JUnitCore TestListExamples)
+
+# Analyze test results and provide feedback
+echo "$test_output"
+if echo "$test_output" | grep -q "FAILURES"; then
+    echo "Some tests did not pass."
+else
+    echo "All tests passed."
+fi
+
+# Optionally, return to the original directory
+cd ..
